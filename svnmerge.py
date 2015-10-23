@@ -855,13 +855,17 @@ def get_revlist_prop(url_or_dir, propname, rev=None):
     revision lists and return a dictionary whose key is a source path
     identifier, and whose value is the revisions for that source."""
 
-    # Note that propget does not return an error if the property does
-    # not exist, it simply does not output anything. So we do not need
-    # to check for LaunchError here.
-    args = '--strict "%s" "%s"' % (propname, url_or_dir)
+    args = '--no-newline "%s" "%s"' % (propname, url_or_dir)
     if rev:
         args = '-r %s %s' % (rev, args)
-    out = launchsvn('propget %s' % args, split_lines=False)
+    out = ""
+    try:
+        out = launchsvn('propget %s' % args, split_lines=False)
+    except LaunchError,(ret,cmd,error):
+        # Ignore non existing property error
+        if "W200017" not in error:
+            raise LaunchError(ret,cmd,error)
+        out=""
 
     return dict_from_revlist_prop(out)
 
@@ -918,7 +922,15 @@ def set_props(dir, name, props):
         # Check if NAME exists on DIR before trying to delete it.
         # As of 1.6 propdel no longer supports deleting a
         # non-existent property.
-        out = launchsvn('propget "%s" "%s"' % (name, dir))
+        out=""
+        try:
+            out = launchsvn('propget "%s" "%s"' % (name, dir))
+        except LaunchError,(ret,cmd,error):
+            # Ignore non existing property error
+            if "W200017" not in error:
+                raise LaunchError(ret,cmd,error)
+            out=""
+
         if out:
             svn_command('propdel "%s" "%s"' % (name, dir))
 
